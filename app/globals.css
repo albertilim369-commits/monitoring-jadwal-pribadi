@@ -76,6 +76,32 @@ button:disabled {
   gap: 8px;
 }
 
+.title-row,
+.brand-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-wrap: wrap;
+}
+
+.brand-row {
+  justify-content: space-between;
+}
+
+.version-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 4px 8px;
+  border: 1px solid #bfd7e2;
+  border-radius: 999px;
+  background: #edf8fb;
+  color: var(--primary-dark);
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
 .eyebrow {
   margin: 0 0 5px;
   color: var(--muted);

@@ -77,6 +77,8 @@ const viewOptions: Array<{ id: ActiveView; label: string }> = [
   { id: "history", label: "Riwayat" }
 ];
 
+const appBuildLabel = "Update 28 Mei 2026";
+
 const emptyTaskForm: TaskFormValues = {
   title: "",
   deadline: toDateInputValue(),
@@ -260,7 +262,10 @@ export default function Home() {
       <header className="topbar">
         <div>
           <p className="eyebrow">{formatShortDate(toDateInputValue())}</p>
-          <h1>Hari ini</h1>
+          <div className="title-row">
+            <h1>Hari ini</h1>
+            <span className="version-pill">{appBuildLabel}</span>
+          </div>
         </div>
         <div className="top-actions">
           {isLeader ? (
@@ -608,7 +613,10 @@ function LoginView() {
   return (
     <main className="login-page">
       <section className="login-panel">
-        <p className="eyebrow">My Daily Assistant</p>
+        <div className="brand-row">
+          <p className="eyebrow">My Daily Assistant</p>
+          <span className="version-pill">{appBuildLabel}</span>
+        </div>
         <h1>{authMode === "reset" ? "Reset password" : authMode === "login" ? "Masuk dan mulai hari ini" : "Daftar akun baru"}</h1>
         <p>
           {authMode === "reset"
