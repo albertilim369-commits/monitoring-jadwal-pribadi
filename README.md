@@ -19,6 +19,14 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
 
 3. Run the SQL in `supabase/schema.sql` inside the Supabase SQL editor.
 
+If only the leader account manager is broken, run `supabase/leader-fix.sql` in the SQL editor. The final result should show:
+
+```text
+leader_accounts_ready = true
+leader_delete_ready = true
+arnold_is_leader = true
+```
+
 4. In Supabase Auth settings, enable Email auth and turn on **Allow new users to sign up**. You can turn off **Confirm email** if you want new users to log in immediately.
 
 5. Start the app:

@@ -2115,7 +2115,7 @@ function toLeaderError(message: string) {
     message.includes("Could not find the function") ||
     message.includes("schema cache")
   ) {
-    return "Fitur leader belum aktif di database. Jalankan ulang supabase/schema.sql terbaru di Supabase SQL Editor.";
+    return "Database belum punya fungsi leader. Jalankan file supabase/leader-fix.sql di Supabase SQL Editor sampai hasil akhirnya: leader_accounts_ready=true, leader_delete_ready=true, arnold_is_leader=true.";
   }
 
   return toSchemaError(message);

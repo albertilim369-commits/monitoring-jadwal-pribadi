@@ -210,7 +210,10 @@ update public.profiles
 set role = 'leader'
 where username = 'arnold';
 
-create or replace function public.leader_accounts()
+drop function if exists public.leader_accounts();
+drop function if exists public.leader_delete_account(uuid);
+
+create function public.leader_accounts()
 returns table (
   user_id uuid,
   username text,
@@ -242,7 +245,7 @@ $$;
 revoke all on function public.leader_accounts() from public;
 grant execute on function public.leader_accounts() to authenticated;
 
-create or replace function public.leader_delete_account(target_user_id uuid)
+create function public.leader_delete_account(target_user_id uuid)
 returns void
 language plpgsql
 security definer
@@ -441,3 +444,15 @@ drop policy if exists "Users can delete their templates" on public.schedule_temp
 create policy "Users can delete their templates"
   on public.schedule_templates for delete
   using (auth.uid() = user_id);
+
+notify pgrst, 'reload schema';
+
+select
+  to_regprocedure('public.leader_accounts()') is not null as leader_accounts_ready,
+  to_regprocedure('public.leader_delete_account(uuid)') is not null as leader_delete_ready,
+  exists (
+    select 1
+    from public.profiles
+    where username = 'arnold'
+      and role = 'leader'
+  ) as arnold_is_leader;
