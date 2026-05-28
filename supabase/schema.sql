@@ -56,8 +56,20 @@ create table if not exists public.profiles (
   user_id uuid primary key references auth.users(id) on delete cascade,
   username text not null unique check (username ~ '^[a-z0-9._]{3,32}$'),
   email text not null,
+  role text not null default 'member' check (role in ('leader', 'member')),
   created_at timestamptz not null default now()
 );
+
+alter table public.profiles
+  add column if not exists role text not null default 'member';
+
+do $$
+begin
+  alter table public.profiles
+    add constraint profiles_role_check check (role in ('leader', 'member'));
+exception
+  when duplicate_object then null;
+end $$;
 
 create table if not exists public.subtasks (
   id uuid primary key default gen_random_uuid(),
@@ -125,8 +137,13 @@ begin
     raise exception 'Username wajib 3-32 karakter dan hanya boleh huruf, angka, titik, atau underscore.';
   end if;
 
-  insert into public.profiles (user_id, username, email)
-  values (new.id, clean_username, new.email);
+  insert into public.profiles (user_id, username, email, role)
+  values (
+    new.id,
+    clean_username,
+    new.email,
+    case when clean_username = 'arnold' then 'leader' else 'member' end
+  );
 
   return new;
 end;
@@ -151,6 +168,47 @@ $$;
 
 revoke all on function public.get_email_by_username(text) from public;
 grant execute on function public.get_email_by_username(text) to anon, authenticated;
+
+create or replace function public.is_leader()
+returns boolean
+language sql
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.profiles
+    where profiles.user_id = auth.uid()
+      and profiles.role = 'leader'
+  );
+$$;
+
+revoke all on function public.is_leader() from public;
+grant execute on function public.is_leader() to authenticated;
+
+create or replace function public.prevent_profile_role_change()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if auth.uid() = old.user_id and old.role is distinct from new.role then
+    raise exception 'Role hanya bisa diubah oleh sistem.';
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists prevent_profile_role_change on public.profiles;
+create trigger prevent_profile_role_change
+  before update on public.profiles
+  for each row execute function public.prevent_profile_role_change();
+
+update public.profiles
+set role = 'leader'
+where username = 'arnold';
 
 drop policy if exists "Users can read their events" on public.events;
 create policy "Users can read their events"
@@ -197,7 +255,7 @@ create policy "Users can delete their tasks"
 drop policy if exists "Users can read their profile" on public.profiles;
 create policy "Users can read their profile"
   on public.profiles for select
-  using (auth.uid() = user_id);
+  using (auth.uid() = user_id or public.is_leader());
 
 drop policy if exists "Users can update their profile" on public.profiles;
 create policy "Users can update their profile"

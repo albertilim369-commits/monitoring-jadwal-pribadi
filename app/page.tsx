@@ -11,6 +11,7 @@ import {
   Pencil,
   Plus,
   Settings,
+  Shield,
   Trash2,
   X
 } from "lucide-react";
@@ -34,7 +35,9 @@ import type {
   EventFormValues,
   EventItem,
   EventStatus,
+  LeaderAccount,
   Priority,
+  Profile,
   ScheduleTemplate,
   Subtask,
   Task,
@@ -47,6 +50,7 @@ import type {
 type ModalState =
   | { type: "choice" }
   | { type: "settings" }
+  | { type: "leader" }
   | { type: "taskDetail"; taskId: string }
   | { type: "task"; task?: Task }
   | { type: "event"; event?: EventItem }
@@ -98,9 +102,11 @@ export default function Home() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [events, setEvents] = useState<EventItem[]>([]);
   const [templates, setTemplates] = useState<ScheduleTemplate[]>([]);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [modal, setModal] = useState<ModalState>(null);
   const [activeView, setActiveView] = useState<ActiveView>("today");
   const [activeMonth, setActiveMonth] = useState(() => startOfMonth(new Date()));
+  const [passwordRecovery, setPasswordRecovery] = useState(false);
   const userId = session?.user?.id;
 
   useEffect(() => {
@@ -116,7 +122,15 @@ export default function Home() {
 
     const {
       data: { subscription }
-    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      if (event === "PASSWORD_RECOVERY") {
+        setPasswordRecovery(true);
+      }
+
+      if (event === "SIGNED_OUT") {
+        setPasswordRecovery(false);
+      }
+
       setSession(nextSession);
     });
 
@@ -169,6 +183,9 @@ export default function Home() {
       .select("*")
       .eq("user_id", userId)
       .order("created_at", { ascending: false });
+    const loadedProfile = await loadCurrentProfile(userId);
+
+    setProfile(loadedProfile);
 
     if (taskResult.error || eventResult.error) {
       setError(taskResult.error?.message || eventResult.error?.message || "Gagal memuat data.");
@@ -191,6 +208,8 @@ export default function Home() {
     if (!userId) {
       setTasks([]);
       setEvents([]);
+      setTemplates([]);
+      setProfile(null);
       return;
     }
 
@@ -208,6 +227,7 @@ export default function Home() {
   const historyEvents = monthEvents.filter(isEventInHistory);
   const doneCount = tasks.filter((task) => task.status === "done").length;
   const selectedTask = modal?.type === "taskDetail" ? tasks.find((task) => task.id === modal.taskId) : null;
+  const isLeader = isLeaderProfile(profile);
   const currentView = getViewContent(activeView, {
     todayTasks,
     todayEvents,
@@ -227,6 +247,10 @@ export default function Home() {
     );
   }
 
+  if (passwordRecovery && session?.user) {
+    return <PasswordResetView onDone={() => setPasswordRecovery(false)} />;
+  }
+
   if (!session?.user) {
     return <LoginView />;
   }
@@ -239,6 +263,11 @@ export default function Home() {
           <h1>Hari ini</h1>
         </div>
         <div className="top-actions">
+          {isLeader ? (
+            <button className="icon-button" type="button" onClick={() => setModal({ type: "leader" })} aria-label="Leader panel">
+              <Shield size={20} />
+            </button>
+          ) : null}
           <button className="icon-button" type="button" onClick={() => setModal({ type: "settings" })} aria-label="Settings">
             <Settings size={20} />
           </button>
@@ -365,6 +394,15 @@ export default function Home() {
               onError={setError}
             />
           ) : null}
+          {modal.type === "leader" && isLeader ? (
+            <LeaderSheet
+              currentUserId={session.user.id}
+              onAccountDeleted={async () => {
+                setMessage("Akun berhasil dihapus.");
+                await loadDashboard();
+              }}
+            />
+          ) : null}
         </Modal>
       ) : null}
 
@@ -451,7 +489,7 @@ function LoginView() {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [authMode, setAuthMode] = useState<"login" | "signup">("login");
+  const [authMode, setAuthMode] = useState<"login" | "signup" | "reset">("login");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -479,6 +517,40 @@ function LoginView() {
 
     if (!/^[a-z0-9._]{3,32}$/.test(cleanUsername)) {
       setError("Username harus 3-32 karakter dan hanya boleh huruf, angka, titik, atau underscore.");
+      setLoading(false);
+      return;
+    }
+
+    if (authMode === "reset") {
+      const lookupResult = await supabase.rpc("get_email_by_username", {
+        login_username: cleanUsername
+      });
+
+      if (lookupResult.error) {
+        setError(toFriendlyAuthError(lookupResult.error.message));
+        setLoading(false);
+        return;
+      }
+
+      const rows = (lookupResult.data || []) as UsernameLookupResult[];
+      const lookupEmail = rows[0]?.email;
+
+      if (!lookupEmail) {
+        setError("Username tidak ditemukan.");
+        setLoading(false);
+        return;
+      }
+
+      const resetResult = await supabase.auth.resetPasswordForEmail(lookupEmail, {
+        redirectTo: window.location.origin
+      });
+
+      if (resetResult.error) {
+        setError(toFriendlyAuthError(resetResult.error.message));
+      } else {
+        setMessage("Link reset password sudah dikirim ke Gmail akun ini.");
+      }
+
       setLoading(false);
       return;
     }
@@ -537,8 +609,12 @@ function LoginView() {
     <main className="login-page">
       <section className="login-panel">
         <p className="eyebrow">My Daily Assistant</p>
-        <h1>{authMode === "login" ? "Masuk dan mulai hari ini" : "Daftar akun baru"}</h1>
-        <p>Login cukup pakai username dan password. Gmail hanya dipakai saat daftar akun.</p>
+        <h1>{authMode === "reset" ? "Reset password" : authMode === "login" ? "Masuk dan mulai hari ini" : "Daftar akun baru"}</h1>
+        <p>
+          {authMode === "reset"
+            ? "Masukkan username. Link reset akan dikirim ke Gmail yang dipakai saat daftar."
+            : "Login cukup pakai username dan password. Gmail hanya dipakai saat daftar akun."}
+        </p>
         <div className="auth-switch" aria-label="Pilih mode auth">
           <button
             className={authMode === "login" ? "primary-button" : "secondary-button"}
@@ -561,6 +637,17 @@ function LoginView() {
             }}
           >
             Daftar
+          </button>
+          <button
+            className={authMode === "reset" ? "primary-button" : "secondary-button"}
+            type="button"
+            onClick={() => {
+              setAuthMode("reset");
+              setError("");
+              setMessage("");
+            }}
+          >
+            Reset
           </button>
         </div>
         <form className="form" onSubmit={(event) => void handleAuth(event)}>
@@ -597,21 +684,23 @@ function LoginView() {
               />
             </div>
           ) : null}
-          <div className="field">
-            <label htmlFor="password">Password</label>
-            <input
-              id="password"
-              type="password"
-              autoComplete={authMode === "login" ? "current-password" : "new-password"}
-              placeholder="Minimal 6 karakter"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              minLength={6}
-              required
-            />
-          </div>
+          {authMode !== "reset" ? (
+            <div className="field">
+              <label htmlFor="password">Password</label>
+              <input
+                id="password"
+                type="password"
+                autoComplete={authMode === "login" ? "current-password" : "new-password"}
+                placeholder="Minimal 6 karakter"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                minLength={6}
+                required
+              />
+            </div>
+          ) : null}
           <button className="primary-button" type="submit" disabled={loading}>
-            {loading ? "Memproses..." : authMode === "login" ? "Masuk" : "Daftar akun baru"}
+            {loading ? "Memproses..." : authMode === "reset" ? "Kirim link reset" : authMode === "login" ? "Masuk" : "Daftar akun baru"}
           </button>
           {message ? <span>{message}</span> : null}
           {error ? <span className="error-text">{error}</span> : null}
@@ -619,6 +708,126 @@ function LoginView() {
       </section>
     </main>
   );
+}
+
+function PasswordResetView({ onDone }: { onDone: () => void }) {
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+
+  async function handleUpdatePassword(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setMessage("");
+    setError("");
+
+    if (password.length < 6) {
+      setError("Password minimal 6 karakter.");
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError("Konfirmasi password belum sama.");
+      return;
+    }
+
+    setLoading(true);
+
+    const { error: updateError } = await supabase.auth.updateUser({ password });
+
+    if (updateError) {
+      setError(toFriendlyAuthError(updateError.message));
+    } else {
+      setPassword("");
+      setConfirmPassword("");
+      setMessage("Password baru sudah disimpan.");
+    }
+
+    setLoading(false);
+  }
+
+  return (
+    <main className="login-page">
+      <section className="login-panel">
+        <p className="eyebrow">My Daily Assistant</p>
+        <h1>Buat password baru</h1>
+        <p>Masukkan password baru untuk akun ini.</p>
+        <form className="form" onSubmit={(event) => void handleUpdatePassword(event)}>
+          <div className="field">
+            <label htmlFor="new-password">Password baru</label>
+            <input
+              id="new-password"
+              type="password"
+              autoComplete="new-password"
+              minLength={6}
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              required
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="confirm-password">Ulangi password baru</label>
+            <input
+              id="confirm-password"
+              type="password"
+              autoComplete="new-password"
+              minLength={6}
+              value={confirmPassword}
+              onChange={(event) => setConfirmPassword(event.target.value)}
+              required
+            />
+          </div>
+          <button className="primary-button" type="submit" disabled={loading}>
+            {loading ? "Menyimpan..." : "Simpan password"}
+          </button>
+          {message ? (
+            <>
+              <span>{message}</span>
+              <button className="secondary-button" type="button" onClick={onDone}>
+                Lanjut ke aplikasi
+              </button>
+            </>
+          ) : null}
+          {error ? <span className="error-text">{error}</span> : null}
+        </form>
+      </section>
+    </main>
+  );
+}
+
+async function loadCurrentProfile(userId: string) {
+  const profileResult = await supabase
+    .from("profiles")
+    .select("user_id, username, email, role, created_at")
+    .eq("user_id", userId)
+    .single();
+
+  if (!profileResult.error && profileResult.data) {
+    const profile = profileResult.data as Profile;
+    return {
+      ...profile,
+      role: profile.role || (profile.username === "arnold" ? "leader" : "member")
+    } satisfies Profile;
+  }
+
+  if (!profileResult.error?.message.includes("role")) {
+    return null;
+  }
+
+  const fallbackResult = await supabase
+    .from("profiles")
+    .select("user_id, username, email, created_at")
+    .eq("user_id", userId)
+    .single();
+
+  if (fallbackResult.error || !fallbackResult.data) return null;
+
+  const fallbackProfile = fallbackResult.data as Omit<Profile, "role">;
+  return {
+    ...fallbackProfile,
+    role: fallbackProfile.username === "arnold" ? "leader" : "member"
+  } satisfies Profile;
 }
 
 function DashboardSection({
@@ -1614,6 +1823,179 @@ function SettingsSheet({
   );
 }
 
+function LeaderSheet({
+  currentUserId,
+  onAccountDeleted
+}: {
+  currentUserId: string;
+  onAccountDeleted: () => Promise<void>;
+}) {
+  const [accounts, setAccounts] = useState<LeaderAccount[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState("");
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+
+  const loadAccounts = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    setMessage("");
+
+    const {
+      data: { session }
+    } = await supabase.auth.getSession();
+
+    if (!session?.access_token) {
+      setError("Session tidak ditemukan. Login ulang dulu.");
+      setLoading(false);
+      return;
+    }
+
+    const response = await fetch("/api/leader/accounts", {
+      headers: {
+        Authorization: `Bearer ${session.access_token}`
+      },
+      cache: "no-store"
+    });
+    const payload = (await response.json().catch(() => ({}))) as {
+      accounts?: LeaderAccount[];
+      error?: string;
+    };
+
+    if (!response.ok) {
+      setError(payload.error || "Gagal memuat daftar akun.");
+    } else {
+      setAccounts(payload.accounts || []);
+    }
+
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    void loadAccounts();
+  }, [loadAccounts]);
+
+  async function deleteAccount(account: LeaderAccount) {
+    if (account.user_id === currentUserId) {
+      setError("Akun yang sedang dipakai tidak bisa menghapus dirinya sendiri.");
+      return;
+    }
+
+    if (account.username === "arnold") {
+      setError("Akun leader utama arnold tidak boleh dihapus.");
+      return;
+    }
+
+    const confirmed = window.confirm(`Hapus akun ${account.username}? Semua data task dan event akun ini ikut terhapus.`);
+    if (!confirmed) return;
+
+    setDeletingId(account.user_id);
+    setError("");
+    setMessage("");
+
+    const {
+      data: { session }
+    } = await supabase.auth.getSession();
+
+    if (!session?.access_token) {
+      setError("Session tidak ditemukan. Login ulang dulu.");
+      setDeletingId("");
+      return;
+    }
+
+    const response = await fetch("/api/leader/accounts", {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ userId: account.user_id })
+    });
+    const payload = (await response.json().catch(() => ({}))) as { error?: string };
+
+    if (!response.ok) {
+      setError(payload.error || "Gagal menghapus akun.");
+    } else {
+      setMessage(`Akun ${account.username} sudah dihapus.`);
+      await loadAccounts();
+      await onAccountDeleted();
+    }
+
+    setDeletingId("");
+  }
+
+  const leaderCount = accounts.filter((account) => account.role === "leader").length;
+
+  return (
+    <>
+      <div className="sheet-header">
+        <div>
+          <p className="eyebrow">Leader</p>
+          <h2>Manage akun</h2>
+        </div>
+      </div>
+
+      <div className="detail-stack">
+        <section className="status-strip">
+          <div className="metric">
+            <strong>{accounts.length}</strong>
+            <span>Total akun</span>
+          </div>
+          <div className="metric">
+            <strong>{leaderCount}</strong>
+            <span>Leader</span>
+          </div>
+          <div className="metric">
+            <strong>{Math.max(accounts.length - leaderCount, 0)}</strong>
+            <span>Member</span>
+          </div>
+        </section>
+
+        {message ? <div className="notice">{message}</div> : null}
+        {error ? <div className="notice error-text">{error}</div> : null}
+
+        <button className="secondary-button" type="button" onClick={() => void loadAccounts()} disabled={loading}>
+          {loading ? "Memuat akun..." : "Refresh daftar akun"}
+        </button>
+
+        <section className="detail-section">
+          <div className="section-header compact">
+            <h3>Daftar akun</h3>
+            <span>{accounts.length}</span>
+          </div>
+          <div className="progress-list">
+            {loading ? <div className="empty-state">Memuat daftar akun...</div> : null}
+            {!loading && accounts.length === 0 ? <div className="empty-state">Belum ada akun lain.</div> : null}
+            {accounts.map((account) => (
+              <article className="account-row" key={account.user_id}>
+                <div>
+                  <div className="account-title">
+                    <p>{account.username}</p>
+                    <span className={`badge ${account.role === "leader" ? "green" : "blue"}`}>
+                      {account.role === "leader" ? "Leader" : "Member"}
+                    </span>
+                  </div>
+                  <span>{account.email || "Email tidak tersedia"}</span>
+                  <span>Dibuat: {formatUpdateDate(account.created_at)}</span>
+                  <span>Login terakhir: {account.last_sign_in_at ? formatUpdateDate(account.last_sign_in_at) : "Belum pernah"}</span>
+                </div>
+                <button
+                  className="danger-button"
+                  type="button"
+                  onClick={() => void deleteAccount(account)}
+                  disabled={deletingId === account.user_id || account.user_id === currentUserId || account.username === "arnold"}
+                >
+                  {deletingId === account.user_id ? "Menghapus..." : "Hapus"}
+                </button>
+              </article>
+            ))}
+          </div>
+        </section>
+      </div>
+    </>
+  );
+}
+
 function Modal({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true">
@@ -1644,6 +2026,10 @@ function getTaskProgress(task: Task) {
 
 function isEventInHistory(event: EventItem) {
   return event.status === "done" || isPastDate(event.date);
+}
+
+function isLeaderProfile(profile: Profile | null) {
+  return profile?.role === "leader" || profile?.username === "arnold";
 }
 
 function getEventStatusLabel(event: EventItem) {
@@ -1726,6 +2112,10 @@ function toProgressError(message: string) {
 }
 
 function toSchemaError(message: string) {
+  if (message.includes("profiles.role") || message.includes("column profiles.role") || message.includes("is_leader")) {
+    return "Fitur leader belum aktif di database. Jalankan ulang supabase/schema.sql di Supabase SQL Editor.";
+  }
+
   if (message.includes("schedule_templates") || message.includes("schema cache")) {
     return "Fitur template belum aktif di database. Jalankan ulang supabase/schema.sql di Supabase SQL Editor.";
   }

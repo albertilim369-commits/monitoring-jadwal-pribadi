@@ -3,6 +3,19 @@ export type TaskStatus = "todo" | "in_progress" | "done";
 export type EventStatus = "scheduled" | "done";
 export type ColorLabel = "red" | "blue" | "green" | "yellow" | "neutral";
 export type TemplateType = "task" | "event";
+export type UserRole = "leader" | "member";
+
+export type Profile = {
+  user_id: string;
+  username: string;
+  email: string;
+  role: UserRole;
+  created_at: string;
+};
+
+export type LeaderAccount = Profile & {
+  last_sign_in_at: string | null;
+};
 
 export type Task = {
   id: string;

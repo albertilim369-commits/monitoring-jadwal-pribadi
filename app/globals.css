@@ -529,7 +529,8 @@ button:disabled {
 
 .progress-header,
 .check-row,
-.update-row {
+.update-row,
+.account-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -573,7 +574,8 @@ button:disabled {
 }
 
 .check-row,
-.update-row {
+.update-row,
+.account-row {
   padding: 10px;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -613,18 +615,37 @@ button:disabled {
   align-items: flex-start;
 }
 
-.update-row div {
+.update-row div,
+.account-row div {
   min-width: 0;
 }
 
-.update-row p {
+.update-row p,
+.account-row p {
   margin: 0 0 5px;
   overflow-wrap: anywhere;
 }
 
-.update-row span {
+.update-row span,
+.account-row span {
   color: var(--muted);
   font-size: 12px;
+}
+
+.account-row {
+  align-items: flex-start;
+}
+
+.account-row > div {
+  display: grid;
+  gap: 4px;
+}
+
+.account-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .login-page {
@@ -651,7 +672,7 @@ button:disabled {
 
 .auth-switch {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
   margin-bottom: 16px;
 }
