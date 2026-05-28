@@ -1,10 +1,10 @@
 :root {
-  --background: #f8fafc;
+  --background: #f3f6fa;
   --surface: #ffffff;
-  --surface-soft: #eef2f7;
+  --surface-soft: #f1f5f9;
   --text: #111827;
   --muted: #667085;
-  --line: #d8dee8;
+  --line: #d9e2ee;
   --primary: #176b87;
   --primary-dark: #0f5167;
   --danger: #c2410c;
@@ -52,17 +52,22 @@ button:disabled {
 
 .app-shell {
   min-height: 100vh;
-  max-width: 560px;
+  max-width: 620px;
   margin: 0 auto;
-  padding: 18px 16px 112px;
+  padding: 14px 14px 112px;
 }
 
 .topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 8px 0 18px;
+  padding: 10px 0 16px;
+  background: rgba(243, 246, 250, 0.92);
+  backdrop-filter: blur(12px);
 }
 
 .top-actions {
@@ -98,8 +103,10 @@ button:disabled {
   width: 42px;
   height: 42px;
   border-radius: 8px;
-  background: var(--surface-soft);
+  border: 1px solid var(--line);
+  background: var(--surface);
   color: var(--text);
+  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.05);
 }
 
 .icon-button.small {
@@ -205,8 +212,7 @@ button:disabled {
   gap: 10px;
 }
 
-.empty-state,
-.notice {
+.empty-state {
   padding: 18px;
   border: 1px dashed var(--line);
   border-radius: 8px;
@@ -215,14 +221,29 @@ button:disabled {
   line-height: 1.45;
 }
 
-.item-card {
-  display: grid;
-  gap: 11px;
-  padding: 14px;
+.notice {
+  padding: 15px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--surface);
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.notice.error-text {
+  border-color: #fed7aa;
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.item-card {
+  display: grid;
+  gap: 11px;
+  padding: 15px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
 }
 
 .task-card {
@@ -407,10 +428,11 @@ button:disabled {
 }
 
 .sheet {
+  position: relative;
   width: min(100%, 560px);
   max-height: calc(100vh - 32px);
   overflow: auto;
-  padding: 18px;
+  padding: 22px 18px 18px;
   border-radius: 8px 8px 0 0;
   background: var(--surface);
   box-shadow: var(--shadow);
@@ -422,6 +444,7 @@ button:disabled {
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 16px;
+  padding-right: 48px;
 }
 
 .sheet-header h2 {
@@ -430,6 +453,9 @@ button:disabled {
 }
 
 .close-button {
+  position: absolute;
+  top: 14px;
+  right: 14px;
   width: 38px;
   height: 38px;
   border-radius: 8px;
@@ -639,6 +665,7 @@ button:disabled {
 .account-row > div {
   display: grid;
   gap: 4px;
+  flex: 1;
 }
 
 .account-title {
@@ -673,8 +700,19 @@ button:disabled {
 .auth-switch {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
+  gap: 4px;
   margin-bottom: 16px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-soft);
+}
+
+.auth-switch .primary-button,
+.auth-switch .secondary-button {
+  min-height: 38px;
+  padding: 0 8px;
+  border-color: transparent;
 }
 
 .error-text {
@@ -683,7 +721,12 @@ button:disabled {
 }
 
 @media (min-width: 640px) {
+  .modal-backdrop {
+    align-items: center;
+  }
+
   .sheet {
     border-radius: 8px;
+    max-height: min(760px, calc(100vh - 48px));
   }
 }

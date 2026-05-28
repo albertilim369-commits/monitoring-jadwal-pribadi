@@ -210,6 +210,80 @@ update public.profiles
 set role = 'leader'
 where username = 'arnold';
 
+create or replace function public.leader_accounts()
+returns table (
+  user_id uuid,
+  username text,
+  email text,
+  role text,
+  created_at timestamptz,
+  last_sign_in_at timestamptz
+)
+language sql
+security definer
+set search_path = public, auth
+as $$
+  select
+    profiles.user_id,
+    profiles.username,
+    profiles.email,
+    profiles.role,
+    profiles.created_at,
+    users.last_sign_in_at
+  from public.profiles
+  left join auth.users
+    on users.id = profiles.user_id
+  where public.is_leader()
+  order by
+    case when profiles.username = 'arnold' then 0 else 1 end,
+    profiles.created_at desc;
+$$;
+
+revoke all on function public.leader_accounts() from public;
+grant execute on function public.leader_accounts() to authenticated;
+
+create or replace function public.leader_delete_account(target_user_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public, auth
+as $$
+declare
+  target_username text;
+begin
+  if not public.is_leader() then
+    raise exception 'Fitur ini hanya untuk akun leader.';
+  end if;
+
+  if target_user_id is null then
+    raise exception 'Pilih akun yang ingin dihapus.';
+  end if;
+
+  if target_user_id = auth.uid() then
+    raise exception 'Akun yang sedang dipakai tidak bisa menghapus dirinya sendiri.';
+  end if;
+
+  select profiles.username
+    into target_username
+  from public.profiles
+  where profiles.user_id = target_user_id;
+
+  if target_username is null then
+    raise exception 'Akun tidak ditemukan.';
+  end if;
+
+  if target_username = 'arnold' then
+    raise exception 'Akun leader utama arnold tidak boleh dihapus.';
+  end if;
+
+  delete from auth.users as auth_users
+  where auth_users.id = target_user_id;
+end;
+$$;
+
+revoke all on function public.leader_delete_account(uuid) from public;
+grant execute on function public.leader_delete_account(uuid) to authenticated;
+
 drop policy if exists "Users can read their events" on public.events;
 create policy "Users can read their events"
   on public.events for select

@@ -15,10 +15,7 @@ npm install
 ```env
 NEXT_PUBLIC_SUPABASE_URL=https://PROJECT_ID.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
-SUPABASE_SERVICE_ROLE_KEY=YOUR_SUPABASE_SERVICE_ROLE_KEY
 ```
-
-`SUPABASE_SERVICE_ROLE_KEY` is server-only and is required for the leader account manager. Never expose it in client code.
 
 3. Run the SQL in `supabase/schema.sql` inside the Supabase SQL editor.
 

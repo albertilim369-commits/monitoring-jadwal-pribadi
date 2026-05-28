@@ -1841,31 +1841,12 @@ function LeaderSheet({
     setError("");
     setMessage("");
 
-    const {
-      data: { session }
-    } = await supabase.auth.getSession();
+    const result = await supabase.rpc("leader_accounts");
 
-    if (!session?.access_token) {
-      setError("Session tidak ditemukan. Login ulang dulu.");
-      setLoading(false);
-      return;
-    }
-
-    const response = await fetch("/api/leader/accounts", {
-      headers: {
-        Authorization: `Bearer ${session.access_token}`
-      },
-      cache: "no-store"
-    });
-    const payload = (await response.json().catch(() => ({}))) as {
-      accounts?: LeaderAccount[];
-      error?: string;
-    };
-
-    if (!response.ok) {
-      setError(payload.error || "Gagal memuat daftar akun.");
+    if (result.error) {
+      setError(toLeaderError(result.error.message));
     } else {
-      setAccounts(payload.accounts || []);
+      setAccounts(((result.data || []) as LeaderAccount[]).map(normalizeLeaderAccount));
     }
 
     setLoading(false);
@@ -1893,28 +1874,12 @@ function LeaderSheet({
     setError("");
     setMessage("");
 
-    const {
-      data: { session }
-    } = await supabase.auth.getSession();
-
-    if (!session?.access_token) {
-      setError("Session tidak ditemukan. Login ulang dulu.");
-      setDeletingId("");
-      return;
-    }
-
-    const response = await fetch("/api/leader/accounts", {
-      method: "DELETE",
-      headers: {
-        Authorization: `Bearer ${session.access_token}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ userId: account.user_id })
+    const { error: deleteError } = await supabase.rpc("leader_delete_account", {
+      target_user_id: account.user_id
     });
-    const payload = (await response.json().catch(() => ({}))) as { error?: string };
 
-    if (!response.ok) {
-      setError(payload.error || "Gagal menghapus akun.");
+    if (deleteError) {
+      setError(toLeaderError(deleteError.message));
     } else {
       setMessage(`Akun ${account.username} sudah dihapus.`);
       await loadAccounts();
@@ -2032,6 +1997,14 @@ function isLeaderProfile(profile: Profile | null) {
   return profile?.role === "leader" || profile?.username === "arnold";
 }
 
+function normalizeLeaderAccount(account: LeaderAccount) {
+  return {
+    ...account,
+    role: account.role || (account.username === "arnold" ? "leader" : "member"),
+    last_sign_in_at: account.last_sign_in_at || null
+  } satisfies LeaderAccount;
+}
+
 function getEventStatusLabel(event: EventItem) {
   if (event.status === "done") return "Selesai";
   if (isPastDate(event.date)) return "Lewat";
@@ -2125,6 +2098,19 @@ function toSchemaError(message: string) {
   }
 
   return toProgressError(message);
+}
+
+function toLeaderError(message: string) {
+  if (
+    message.includes("leader_accounts") ||
+    message.includes("leader_delete_account") ||
+    message.includes("Could not find the function") ||
+    message.includes("schema cache")
+  ) {
+    return "Fitur leader belum aktif di database. Jalankan ulang supabase/schema.sql terbaru di Supabase SQL Editor.";
+  }
+
+  return toSchemaError(message);
 }
 
 function normalizeUsername(value: string) {
