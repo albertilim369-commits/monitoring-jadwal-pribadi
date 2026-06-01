@@ -77,7 +77,7 @@ const viewOptions: Array<{ id: ActiveView; label: string }> = [
   { id: "history", label: "Riwayat" }
 ];
 
-const appBuildLabel = "Update 28 Mei 2026";
+const appBuildLabel = "Update 1 Juni 2026";
 
 const emptyTaskForm: TaskFormValues = {
   title: "",
