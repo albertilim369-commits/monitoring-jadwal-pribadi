@@ -230,6 +230,8 @@ export default function Home() {
   const doneCount = tasks.filter((task) => task.status === "done").length;
   const selectedTask = modal?.type === "taskDetail" ? tasks.find((task) => task.id === modal.taskId) : null;
   const isLeader = isLeaderProfile(profile);
+  const focusTask = visibleTasks[0] || null;
+  const monthItemCount = monthTasks.length + monthEvents.length;
   const currentView = getViewContent(activeView, {
     todayTasks,
     todayEvents,
@@ -263,7 +265,7 @@ export default function Home() {
         <div>
           <p className="eyebrow">{formatShortDate(toDateInputValue())}</p>
           <div className="title-row">
-            <h1>Hari ini</h1>
+            <h1>Fokus Hari Ini</h1>
             <span className="version-pill">{appBuildLabel}</span>
           </div>
         </div>
@@ -284,6 +286,13 @@ export default function Home() {
 
       {error ? <div className="notice error-text">{error}</div> : null}
       {message ? <div className="notice">{message}</div> : null}
+
+      <FocusPanel
+        focusTask={focusTask}
+        todayCount={todayTasks.length + todayEvents.length}
+        weekCount={upcomingTasks.length + upcomingEvents.length}
+        monthCount={monthItemCount}
+      />
 
       <section className="status-strip" aria-label="Ringkasan">
         <div className="metric">
@@ -838,6 +847,49 @@ async function loadCurrentProfile(userId: string) {
   } satisfies Profile;
 }
 
+function FocusPanel({
+  focusTask,
+  todayCount,
+  weekCount,
+  monthCount
+}: {
+  focusTask: Task | null;
+  todayCount: number;
+  weekCount: number;
+  monthCount: number;
+}) {
+  const progress = focusTask ? getTaskProgress(focusTask) : null;
+
+  return (
+    <section className="focus-panel" aria-label="Fokus utama">
+      <div className="focus-copy">
+        <p className="eyebrow">Fokus berikutnya</p>
+        <h2>{focusTask ? focusTask.title : "Tidak ada task aktif"}</h2>
+        <span>
+          {focusTask
+            ? `Deadline ${formatShortDate(focusTask.deadline)} - ${priorityLabel[focusTask.priority]} - ${statusLabel[focusTask.status]}`
+            : "Agenda terlihat bersih untuk saat ini."}
+        </span>
+      </div>
+      <div className="focus-meter">
+        <strong>{progress && progress.total > 0 ? `${progress.percent}%` : todayCount}</strong>
+        <span>{progress && progress.total > 0 ? "progress" : "hari ini"}</span>
+      </div>
+      <div className="focus-stats">
+        <span>
+          <strong>{todayCount}</strong> hari ini
+        </span>
+        <span>
+          <strong>{weekCount}</strong> 7 hari
+        </span>
+        <span>
+          <strong>{monthCount}</strong> bulan ini
+        </span>
+      </div>
+    </section>
+  );
+}
+
 function DashboardSection({
   title,
   caption,
@@ -923,14 +975,14 @@ function TaskCard({
   const progress = getTaskProgress(task);
 
   return (
-    <article className="item-card task-card" onClick={onOpen}>
+    <article className={`item-card task-card priority-${task.priority}`} onClick={onOpen}>
       <div className="item-main">
         <div className="item-title-row">
           <h3 className="item-title">{task.title}</h3>
           <span className={`badge ${task.priority}`}>{priorityLabel[task.priority]}</span>
         </div>
         <div className="item-meta">
-          Deadline {formatShortDate(task.deadline)} · {statusLabel[task.status]}
+          Deadline {formatShortDate(task.deadline)} - {statusLabel[task.status]}
         </div>
         {task.subtasks && task.subtasks.length > 0 ? (
           <div className="compact-progress" aria-label={`Progress ${progress.percent}%`}>
@@ -1229,7 +1281,7 @@ function EventCard({
   const history = isEventInHistory(event);
 
   return (
-    <article className="item-card">
+    <article className={`item-card event-card color-${label}`}>
       <div className="item-main">
         <div className="item-title-row">
           <h3 className="item-title">{event.title}</h3>
@@ -1237,7 +1289,7 @@ function EventCard({
         </div>
         <div className="item-meta">
           {formatShortDate(event.date)}
-          {event.time ? ` · ${event.time.slice(0, 5)}` : ""}
+          {event.time ? ` - ${event.time.slice(0, 5)}` : ""}
         </div>
         {event.note ? <p className="item-note">{event.note}</p> : null}
       </div>
