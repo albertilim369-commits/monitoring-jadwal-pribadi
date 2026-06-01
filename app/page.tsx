@@ -73,7 +73,7 @@ const statusLabel: Record<TaskStatus, string> = {
 };
 
 const viewOptions: Array<{ id: ActiveView; label: string }> = [
-  { id: "today", label: "Today" },
+  { id: "today", label: "Hari Ini" },
   { id: "week", label: "7 Hari" },
   { id: "month", label: "Bulan" },
   { id: "history", label: "Riwayat" }
@@ -273,7 +273,7 @@ export default function Home() {
         </div>
         <div className="top-actions">
           {isLeader ? (
-            <button className="icon-button" type="button" onClick={() => setModal({ type: "leader" })} aria-label="Leader panel">
+            <button className="icon-button" type="button" onClick={() => setModal({ type: "leader" })} aria-label="Panel leader">
               <Shield size={20} />
             </button>
           ) : null}
@@ -382,8 +382,8 @@ export default function Home() {
               task={selectedTask}
               onEdit={() => setModal({ type: "task", task: selectedTask })}
               onDelete={async () => {
-                await deleteTask(selectedTask);
-                setModal(null);
+                const deleted = await deleteTask(selectedTask);
+                if (deleted) setModal(null);
               }}
               onStatusChange={(status) => updateTaskStatus(selectedTask, status)}
               onChanged={loadDashboard}
@@ -448,6 +448,9 @@ export default function Home() {
   }
 
   async function deleteTask(task: Task) {
+    const confirmed = window.confirm(`Hapus tugas "${task.title}"? Data checklist dan catatan progress ikut terhapus.`);
+    if (!confirmed) return false;
+
     setError("");
     const { error: deleteError } = await supabase
       .from("tasks")
@@ -457,14 +460,18 @@ export default function Home() {
 
     if (deleteError) {
       setError(deleteError.message);
-      return;
+      return false;
     }
 
-    setMessage("Task dihapus.");
+    setMessage("Tugas dihapus.");
     await loadDashboard();
+    return true;
   }
 
   async function deleteEvent(event: EventItem) {
+    const confirmed = window.confirm(`Hapus jadwal "${event.title}"?`);
+    if (!confirmed) return;
+
     setError("");
     const { error: deleteError } = await supabase
       .from("events")
@@ -477,7 +484,7 @@ export default function Home() {
       return;
     }
 
-    setMessage("Event dihapus.");
+    setMessage("Jadwal dihapus.");
     await loadDashboard();
   }
 
@@ -634,7 +641,7 @@ function LoginView() {
       <section className={`login-panel auth-${authMode}`}>
         <div className="auth-header">
           <span className="auth-app-name">My Daily Assistant</span>
-          <h1>{authMode === "reset" ? "Reset Password" : authMode === "login" ? "Login" : "Daftar"}</h1>
+          <h1>{authMode === "reset" ? "Reset password" : authMode === "login" ? "Masuk" : "Daftar"}</h1>
           <p>
             {authMode === "reset"
               ? "Masukkan username untuk menerima link reset"
@@ -747,7 +754,7 @@ function LoginView() {
             </button>
           ) : null}
           <button className="primary-button auth-submit" type="submit" disabled={loading}>
-            {loading ? "Memproses..." : authMode === "reset" ? "Kirim link reset" : authMode === "login" ? "Login" : "Daftar"}
+            {loading ? "Memproses..." : authMode === "reset" ? "Kirim link reset" : authMode === "login" ? "Masuk" : "Daftar"}
           </button>
           {message ? <span>{message}</span> : null}
           {error ? <span className="error-text">{error}</span> : null}
@@ -764,7 +771,7 @@ function LoginView() {
               setMessage("");
             }}
           >
-            {authMode === "login" ? "Daftar" : "Login"}
+            {authMode === "login" ? "Daftar" : "Masuk"}
           </button>
         </p>
       </section>
@@ -932,7 +939,7 @@ function FocusPanel({
         <h2>{focusTask ? focusTask.title : "Tidak ada task aktif"}</h2>
         <span>
           {focusTask
-            ? `Deadline ${formatShortDate(focusTask.deadline)} - ${priorityLabel[focusTask.priority]} - ${statusLabel[focusTask.status]}`
+            ? `Tenggat ${formatShortDate(focusTask.deadline)} - ${priorityLabel[focusTask.priority]} - ${statusLabel[focusTask.status]}`
             : "Agenda terlihat bersih untuk saat ini."}
         </span>
       </div>
@@ -1057,7 +1064,7 @@ function TaskCard({
           <h3 className="item-title">{task.title}</h3>
           <span className={`badge ${task.priority}`}>{priorityLabel[task.priority]}</span>
         </div>
-        <div className="item-meta">Deadline {formatShortDate(task.deadline)} - {statusLabel[task.status]}</div>
+        <div className="item-meta">Tenggat {formatShortDate(task.deadline)} - {statusLabel[task.status]}</div>
         <div className="badge-row compact-badges">
           <span className={`badge ${timing.className}`}>{timing.label}</span>
           {task.status === "done" ? <span className="badge done">Selesai</span> : null}
@@ -1091,7 +1098,7 @@ function TaskCard({
             event.stopPropagation();
             onEdit();
           }}
-          aria-label="Edit task"
+          aria-label="Edit tugas"
         >
           <Pencil size={16} />
         </button>
@@ -1102,7 +1109,7 @@ function TaskCard({
             event.stopPropagation();
             onDelete();
           }}
-          aria-label="Hapus task"
+          aria-label="Hapus tugas"
         >
           <Trash2 size={16} />
         </button>
@@ -1121,7 +1128,7 @@ function TaskDetailSheet({
 }: {
   task: Task;
   onEdit: () => void;
-  onDelete: () => Promise<void>;
+  onDelete: () => Promise<boolean | void>;
   onStatusChange: (status: TaskStatus) => Promise<void>;
   onChanged: () => Promise<void>;
   onError: (message: string) => void;
@@ -1225,7 +1232,7 @@ function TaskDetailSheet({
     <>
       <div className="sheet-header">
         <div>
-          <p className="eyebrow">Detail task</p>
+          <p className="eyebrow">Detail tugas</p>
           <h2>{task.title}</h2>
         </div>
       </div>
@@ -1234,7 +1241,7 @@ function TaskDetailSheet({
         <div className="badge-row">
           <span className={`badge ${task.priority}`}>{priorityLabel[task.priority]}</span>
           <span className="badge">{statusLabel[task.status]}</span>
-          <span className="badge">Deadline {formatShortDate(task.deadline)}</span>
+          <span className="badge">Tenggat {formatShortDate(task.deadline)}</span>
         </div>
 
         {task.note ? <p className="item-note">{task.note}</p> : null}
@@ -1306,12 +1313,12 @@ function TaskDetailSheet({
 
         <section className="detail-section">
           <div className="section-header compact">
-            <h3>Update progress</h3>
+            <h3>Catatan progress</h3>
             <span>{updates.length}</span>
           </div>
           <form className="form" onSubmit={addUpdate}>
             <div className="field">
-              <label htmlFor="progress-update">Catatan update</label>
+              <label htmlFor="progress-update">Catatan progress</label>
               <textarea
                 id="progress-update"
                 placeholder="Contoh: sudah sampai bab 3"
@@ -1320,11 +1327,11 @@ function TaskDetailSheet({
               />
             </div>
             <button className="primary-button" type="submit" disabled={saving}>
-              Simpan update
+              Simpan catatan
             </button>
           </form>
           <div className="progress-list">
-            {updates.length === 0 ? <div className="empty-state">Belum ada update progress.</div> : null}
+            {updates.length === 0 ? <div className="empty-state">Belum ada catatan progress.</div> : null}
             {updates.map((update) => (
               <article className="update-row" key={update.id}>
                 <div>
@@ -1380,10 +1387,10 @@ function EventCard({
           <Check size={16} />
           {status === "done" ? "Buka lagi" : "Selesai"}
         </button>
-        <button className="action-button" type="button" onClick={onEdit} aria-label="Edit event">
+        <button className="action-button" type="button" onClick={onEdit} aria-label="Edit jadwal">
           <Pencil size={16} />
         </button>
-        <button className="danger-button" type="button" onClick={onDelete} aria-label="Hapus event">
+        <button className="danger-button" type="button" onClick={onDelete} aria-label="Hapus jadwal">
           <Trash2 size={16} />
         </button>
       </div>
@@ -1403,13 +1410,13 @@ function ChoiceSheet({ onTask, onEvent }: { onTask: () => void; onEvent: () => v
       <div className="choice-grid">
         <button className="choice-button" type="button" onClick={onTask}>
           <Check size={20} />
-          <strong>Task</strong>
-          <span>Deadline, prioritas, dan status.</span>
+          <strong>Tugas</strong>
+          <span>Tenggat, prioritas, dan status.</span>
         </button>
         <button className="choice-button" type="button" onClick={onEvent}>
           <CalendarDays size={20} />
-          <strong>Event</strong>
-          <span>Jadwal dengan tanggal dan waktu.</span>
+          <strong>Jadwal</strong>
+          <span>Agenda dengan tanggal dan waktu.</span>
         </button>
       </div>
     </>
@@ -1506,8 +1513,8 @@ function TaskForm({
     <>
       <div className="sheet-header">
         <div>
-          <p className="eyebrow">{task ? "Edit task" : "Task baru"}</p>
-          <h2>{task ? "Perbarui task" : "Tambah task"}</h2>
+          <p className="eyebrow">{task ? "Edit tugas" : "Tugas baru"}</p>
+          <h2>{task ? "Perbarui tugas" : "Tambah tugas"}</h2>
         </div>
       </div>
       <form className="form" onSubmit={handleSubmit}>
@@ -1536,7 +1543,7 @@ function TaskForm({
         </div>
         <div className="form-grid">
           <div className="field">
-            <label htmlFor="task-deadline">Deadline</label>
+            <label htmlFor="task-deadline">Tenggat</label>
             <input
               id="task-deadline"
               type="date"
@@ -1682,8 +1689,8 @@ function EventForm({
     <>
       <div className="sheet-header">
         <div>
-          <p className="eyebrow">{event ? "Edit event" : "Event baru"}</p>
-          <h2>{event ? "Perbarui event" : "Tambah event"}</h2>
+          <p className="eyebrow">{event ? "Edit jadwal" : "Jadwal baru"}</p>
+          <h2>{event ? "Perbarui jadwal" : "Tambah jadwal"}</h2>
         </div>
       </div>
       <form className="form" onSubmit={handleSubmit}>
@@ -1853,6 +1860,9 @@ function SettingsSheet({
   }
 
   async function deleteTemplate(template: ScheduleTemplate) {
+    const confirmed = window.confirm(`Hapus template "${template.name}"?`);
+    if (!confirmed) return;
+
     onError("");
     const { error: deleteError } = await supabase.from("schedule_templates").delete().eq("id", template.id).eq("user_id", user.id);
 
@@ -1880,8 +1890,8 @@ function SettingsSheet({
             <div className="field">
               <label htmlFor="template-type">Tipe</label>
               <select id="template-type" value={form.type} onChange={(event) => setForm({ ...form, type: event.target.value as "task" | "event" })}>
-                <option value="task">Task</option>
-                <option value="event">Event</option>
+                <option value="task">Tugas</option>
+                <option value="event">Jadwal</option>
               </select>
             </div>
             <div className="field">
@@ -1951,7 +1961,7 @@ function SettingsSheet({
               Reset
             </button>
             <button className="primary-button" type="submit" disabled={saving}>
-              {saving ? "Menyimpan..." : editing ? "Update template" : "Simpan template"}
+              {saving ? "Menyimpan..." : editing ? "Perbarui template" : "Simpan template"}
             </button>
           </div>
         </form>
@@ -1968,7 +1978,7 @@ function SettingsSheet({
                 <div>
                   <p>{template.name}</p>
                   <span>
-                    {template.type === "task" ? "Task" : "Event"} - {template.title}
+                    {template.type === "task" ? "Tugas" : "Jadwal"} - {template.title}
                   </span>
                 </div>
                 <button className="action-button" type="button" onClick={() => startEdit(template)}>
@@ -2030,7 +2040,7 @@ function LeaderSheet({
       return;
     }
 
-    const confirmed = window.confirm(`Hapus akun ${account.username}? Semua data task dan event akun ini ikut terhapus.`);
+    const confirmed = window.confirm(`Hapus akun ${account.username}? Semua data tugas dan jadwal akun ini ikut terhapus.`);
     if (!confirmed) return;
 
     setDeletingId(account.user_id);
@@ -2264,7 +2274,7 @@ function getViewContent(
   if (activeView === "history") {
     return {
       title: "Riwayat",
-      caption: "Task selesai dan event lewat/selesai pada bulan aktif",
+      caption: "Tugas selesai dan jadwal lewat/selesai pada bulan aktif",
       tasks: data.historyTasks,
       events: data.historyEvents,
       emptyText: "Belum ada riwayat pada bulan ini."
@@ -2272,8 +2282,8 @@ function getViewContent(
   }
 
   return {
-    title: "Today",
-    caption: "Event dan task jatuh tempo hari ini",
+    title: "Hari Ini",
+    caption: "Jadwal dan tugas jatuh tempo hari ini",
     tasks: data.todayTasks,
     events: data.todayEvents,
     emptyText: "Belum ada agenda hari ini."
@@ -2311,7 +2321,7 @@ function toSchemaError(message: string) {
   }
 
   if (message.includes("events.status") || message.includes("completed_at") || message.includes("column events.status")) {
-    return "Status event belum aktif di database. Jalankan ulang supabase/schema.sql di Supabase SQL Editor.";
+    return "Status jadwal belum aktif di database. Jalankan ulang supabase/schema.sql di Supabase SQL Editor.";
   }
 
   return toProgressError(message);

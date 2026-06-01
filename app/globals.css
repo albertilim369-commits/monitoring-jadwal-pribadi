@@ -1041,6 +1041,14 @@ button:disabled {
   line-height: 1.35;
 }
 
+.auth-reset {
+  min-height: auto;
+}
+
+.auth-reset .auth-footer {
+  margin-top: 18px;
+}
+
 .login-illustration {
   position: relative;
   min-height: 150px;
