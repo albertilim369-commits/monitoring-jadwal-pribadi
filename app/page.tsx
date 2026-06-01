@@ -622,16 +622,32 @@ function LoginView() {
   return (
     <main className="login-page">
       <section className="login-panel">
-        <div className="brand-row">
-          <p className="eyebrow">My Daily Assistant</p>
+        <div className="login-brand">
+          <div className="brand-lockup">
+            <span className="brand-mark" aria-hidden="true">
+              M
+            </span>
+            <div>
+              <p className="eyebrow">My Daily Assistant</p>
+              <strong>Workspace pribadi</strong>
+            </div>
+          </div>
           <span className="version-pill">{appBuildLabel}</span>
         </div>
-        <h1>{authMode === "reset" ? "Reset password" : authMode === "login" ? "Masuk dan mulai hari ini" : "Daftar akun baru"}</h1>
-        <p>
-          {authMode === "reset"
-            ? "Masukkan username. Link reset akan dikirim ke Gmail yang dipakai saat daftar."
-            : "Login cukup pakai username dan password. Gmail hanya dipakai saat daftar akun."}
-        </p>
+        <div className="login-copy">
+          <span className="login-kicker">Personal productivity</span>
+          <h1>{authMode === "reset" ? "Reset password" : authMode === "login" ? "Masuk ke dashboard" : "Buat akun baru"}</h1>
+          <p>
+            {authMode === "reset"
+              ? "Masukkan username. Link reset akan dikirim ke Gmail yang dipakai saat daftar."
+              : "Akses task, jadwal, progress, dan riwayat harian dari satu tempat."}
+          </p>
+        </div>
+        <div className="login-status-grid" aria-label="Ringkasan aplikasi">
+          <span>Task</span>
+          <span>Jadwal</span>
+          <span>Progress</span>
+        </div>
         <div className="auth-switch" aria-label="Pilih mode auth">
           <button
             className={authMode === "login" ? "primary-button" : "secondary-button"}
@@ -667,7 +683,7 @@ function LoginView() {
             Reset
           </button>
         </div>
-        <form className="form" onSubmit={(event) => void handleAuth(event)}>
+        <form className="form secure-form" autoComplete="off" data-form-type="other" onSubmit={(event) => void handleAuth(event)}>
           {!isSupabaseConfigured ? (
             <div className="notice">
               Supabase belum siap. {supabaseConfigError || "Isi `.env.local` sebelum login."}
@@ -678,8 +694,15 @@ function LoginView() {
             <input
               id="username"
               type="text"
-              autoComplete="username"
+              autoComplete="off"
+              autoCapitalize="none"
+              autoCorrect="off"
+              data-1p-ignore="true"
+              data-form-type="other"
+              data-lpignore="true"
+              inputMode="text"
               placeholder="arnold"
+              spellCheck={false}
               value={username}
               onChange={(event) => setUsername(event.target.value)}
               minLength={3}
@@ -692,9 +715,16 @@ function LoginView() {
               <label htmlFor="email">Gmail untuk daftar</label>
               <input
                 id="email"
-                type="email"
-                autoComplete="email"
+                type="text"
+                autoComplete="off"
+                autoCapitalize="none"
+                autoCorrect="off"
+                data-1p-ignore="true"
+                data-form-type="other"
+                data-lpignore="true"
+                inputMode="email"
                 placeholder="nama@gmail.com"
+                spellCheck={false}
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
                 required
@@ -707,8 +737,14 @@ function LoginView() {
               <input
                 id="password"
                 type="password"
-                autoComplete={authMode === "login" ? "current-password" : "new-password"}
+                autoComplete="new-password"
+                autoCapitalize="none"
+                autoCorrect="off"
+                data-1p-ignore="true"
+                data-form-type="other"
+                data-lpignore="true"
                 placeholder="Minimal 6 karakter"
+                spellCheck={false}
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 minLength={6}
