@@ -7,12 +7,14 @@ import {
   ChevronLeft,
   ChevronRight,
   Check,
+  LockKeyhole,
   LogOut,
   Pencil,
   Plus,
   Settings,
   Shield,
   Trash2,
+  UserRound,
   X
 } from "lucide-react";
 import {
@@ -503,6 +505,7 @@ function LoginView() {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [authMode, setAuthMode] = useState<"login" | "signup" | "reset">("login");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
@@ -575,6 +578,12 @@ function LoginView() {
       return;
     }
 
+    if (authMode === "signup" && password !== confirmPassword) {
+      setError("Konfirmasi password belum sama.");
+      setLoading(false);
+      return;
+    }
+
     if (authMode === "login") {
       const lookupResult = await supabase.rpc("get_email_by_username", {
         login_username: cleanUsername
@@ -621,67 +630,17 @@ function LoginView() {
 
   return (
     <main className="login-page">
-      <section className="login-panel">
-        <div className="login-brand">
-          <div className="brand-lockup">
-            <span className="brand-mark" aria-hidden="true">
-              M
-            </span>
-            <div>
-              <p className="eyebrow">My Daily Assistant</p>
-              <strong>Workspace pribadi</strong>
-            </div>
-          </div>
-          <span className="version-pill">{appBuildLabel}</span>
-        </div>
-        <div className="login-copy">
-          <span className="login-kicker">Personal productivity</span>
-          <h1>{authMode === "reset" ? "Reset password" : authMode === "login" ? "Masuk ke dashboard" : "Buat akun baru"}</h1>
+      <section className={`login-panel auth-${authMode}`}>
+        <div className="auth-header">
+          <span className="auth-app-name">My Daily Assistant</span>
+          <h1>{authMode === "reset" ? "Reset Password" : authMode === "login" ? "Login" : "Sign up"}</h1>
           <p>
             {authMode === "reset"
-              ? "Masukkan username. Link reset akan dikirim ke Gmail yang dipakai saat daftar."
-              : "Akses task, jadwal, progress, dan riwayat harian dari satu tempat."}
+              ? "Enter your username to receive reset link"
+              : authMode === "login"
+                ? "Log in to your account now"
+                : "Create an account, it's free"}
           </p>
-        </div>
-        <div className="login-status-grid" aria-label="Ringkasan aplikasi">
-          <span>Task</span>
-          <span>Jadwal</span>
-          <span>Progress</span>
-        </div>
-        <div className="auth-switch" aria-label="Pilih mode auth">
-          <button
-            className={authMode === "login" ? "primary-button" : "secondary-button"}
-            type="button"
-            onClick={() => {
-              setAuthMode("login");
-              setError("");
-              setMessage("");
-            }}
-          >
-            Masuk
-          </button>
-          <button
-            className={authMode === "signup" ? "primary-button" : "secondary-button"}
-            type="button"
-            onClick={() => {
-              setAuthMode("signup");
-              setError("");
-              setMessage("");
-            }}
-          >
-            Daftar
-          </button>
-          <button
-            className={authMode === "reset" ? "primary-button" : "secondary-button"}
-            type="button"
-            onClick={() => {
-              setAuthMode("reset");
-              setError("");
-              setMessage("");
-            }}
-          >
-            Reset
-          </button>
         </div>
         <form className="form secure-form" autoComplete="off" data-form-type="other" onSubmit={(event) => void handleAuth(event)}>
           {!isSupabaseConfigured ? (
@@ -712,7 +671,7 @@ function LoginView() {
           </div>
           {authMode === "signup" ? (
             <div className="field">
-              <label htmlFor="email">Gmail untuk daftar</label>
+              <label htmlFor="email">Email</label>
               <input
                 id="email"
                 type="text"
@@ -752,14 +711,81 @@ function LoginView() {
               />
             </div>
           ) : null}
-          <button className="primary-button" type="submit" disabled={loading}>
-            {loading ? "Memproses..." : authMode === "reset" ? "Kirim link reset" : authMode === "login" ? "Masuk" : "Daftar akun baru"}
+          {authMode === "signup" ? (
+            <div className="field">
+              <label htmlFor="confirm-password">Confirm Password</label>
+              <input
+                id="confirm-password"
+                type="password"
+                autoComplete="new-password"
+                autoCapitalize="none"
+                autoCorrect="off"
+                data-1p-ignore="true"
+                data-form-type="other"
+                data-lpignore="true"
+                placeholder="Ulangi password"
+                spellCheck={false}
+                value={confirmPassword}
+                onChange={(event) => setConfirmPassword(event.target.value)}
+                minLength={6}
+                required
+              />
+            </div>
+          ) : null}
+          {authMode === "login" ? (
+            <button
+              className="text-link forgot-link"
+              type="button"
+              onClick={() => {
+                setAuthMode("reset");
+                setError("");
+                setMessage("");
+              }}
+            >
+              Forgot password?
+            </button>
+          ) : null}
+          <button className="primary-button auth-submit" type="submit" disabled={loading}>
+            {loading ? "Processing..." : authMode === "reset" ? "Send reset link" : authMode === "login" ? "Login" : "Sign up"}
           </button>
           {message ? <span>{message}</span> : null}
           {error ? <span className="error-text">{error}</span> : null}
         </form>
+        {authMode === "login" ? <LoginIllustration /> : null}
+        <p className="auth-footer">
+          {authMode === "signup" ? "Already have an account? " : authMode === "reset" ? "Remember your password? " : "Don't have an account? "}
+          <button
+            className="text-link"
+            type="button"
+            onClick={() => {
+              setAuthMode(authMode === "login" ? "signup" : "login");
+              setError("");
+              setMessage("");
+            }}
+          >
+            {authMode === "login" ? "Sign up" : "Login"}
+          </button>
+        </p>
       </section>
     </main>
+  );
+}
+
+function LoginIllustration() {
+  return (
+    <div className="login-illustration" aria-hidden="true">
+      <div className="illustration-person">
+        <UserRound size={28} />
+      </div>
+      <div className="illustration-phone">
+        <LockKeyhole size={42} />
+      </div>
+      <div className="illustration-leaves">
+        <span />
+        <span />
+        <span />
+      </div>
+    </div>
   );
 }
 
