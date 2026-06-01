@@ -119,10 +119,26 @@ export default function Home() {
       return;
     }
 
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      setAuthLoading(false);
-    });
+    let isMounted = true;
+    const authTimeout = window.setTimeout(() => {
+      if (isMounted) setAuthLoading(false);
+    }, 5000);
+
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        if (!isMounted) return;
+        setSession(data.session);
+      })
+      .catch(() => {
+        if (!isMounted) return;
+        setSession(null);
+      })
+      .finally(() => {
+        if (!isMounted) return;
+        window.clearTimeout(authTimeout);
+        setAuthLoading(false);
+      });
 
     const {
       data: { subscription }
@@ -138,7 +154,11 @@ export default function Home() {
       setSession(nextSession);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      isMounted = false;
+      window.clearTimeout(authTimeout);
+      subscription.unsubscribe();
+    };
   }, []);
 
   const loadDashboard = useCallback(async () => {
@@ -518,6 +538,13 @@ function LoginView() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const title = authMode === "reset" ? "Reset Password" : authMode === "login" ? "Login" : "Sign up";
+  const subtitle =
+    authMode === "reset"
+      ? "Enter your username to reset password"
+      : authMode === "login"
+        ? "Log in to your account now"
+        : "Create an account, it's free";
 
   async function handleAuth(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -532,6 +559,7 @@ function LoginView() {
     setError("");
 
     const cleanUsername = normalizeUsername(username);
+    const cleanEmail = email.trim().toLowerCase();
     let authError: { message: string } | null = null;
 
     if (!cleanUsername) {
@@ -580,8 +608,14 @@ function LoginView() {
       return;
     }
 
-    if (authMode === "signup" && !email.trim()) {
+    if (authMode === "signup" && !cleanEmail) {
       setError("Gmail wajib diisi saat daftar akun baru.");
+      setLoading(false);
+      return;
+    }
+
+    if (authMode === "signup" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      setError("Format Gmail belum benar.");
       setLoading(false);
       return;
     }
@@ -615,7 +649,7 @@ function LoginView() {
       }
     } else {
       const signupResult = await supabase.auth.signUp({
-        email,
+        email: cleanEmail,
         password,
         options: {
           data: {
@@ -639,16 +673,26 @@ function LoginView() {
   return (
     <main className="login-page">
       <section className={`login-panel auth-${authMode}`}>
-        <div className="auth-header">
+        <div className="auth-topline">
+          <button
+            className="auth-back"
+            type="button"
+            aria-label={authMode === "login" ? "Login screen" : "Kembali ke login"}
+            disabled={authMode === "login"}
+            onClick={() => {
+              if (authMode === "login") return;
+              setAuthMode("login");
+              setError("");
+              setMessage("");
+            }}
+          >
+            <ChevronLeft size={18} />
+          </button>
           <span className="auth-app-name">My Daily Assistant</span>
-          <h1>{authMode === "reset" ? "Reset password" : authMode === "login" ? "Masuk" : "Daftar"}</h1>
-          <p>
-            {authMode === "reset"
-              ? "Masukkan username untuk menerima link reset"
-              : authMode === "login"
-                ? "Masuk ke akun dan lanjutkan jadwal hari ini"
-                : "Buat akun baru untuk mulai memakai aplikasi"}
-          </p>
+        </div>
+        <div className="auth-header">
+          <h1>{title}</h1>
+          <p>{subtitle}</p>
         </div>
         <form className="form secure-form" autoComplete="off" data-form-type="other" onSubmit={(event) => void handleAuth(event)}>
           {!isSupabaseConfigured ? (
@@ -754,14 +798,14 @@ function LoginView() {
             </button>
           ) : null}
           <button className="primary-button auth-submit" type="submit" disabled={loading}>
-            {loading ? "Memproses..." : authMode === "reset" ? "Kirim link reset" : authMode === "login" ? "Masuk" : "Daftar"}
+            {loading ? "Memproses..." : authMode === "reset" ? "Kirim link reset" : authMode === "login" ? "Login" : "Sign up"}
           </button>
           {message ? <span>{message}</span> : null}
           {error ? <span className="error-text">{error}</span> : null}
         </form>
         {authMode === "login" ? <LoginIllustration /> : null}
         <p className="auth-footer">
-          {authMode === "signup" ? "Sudah punya akun? " : authMode === "reset" ? "Ingat password? " : "Belum punya akun? "}
+          {authMode === "signup" ? "Already have an account? " : authMode === "reset" ? "Remember password? " : "Don't have an account? "}
           <button
             className="text-link"
             type="button"
@@ -771,7 +815,7 @@ function LoginView() {
               setMessage("");
             }}
           >
-            {authMode === "login" ? "Daftar" : "Masuk"}
+            {authMode === "login" ? "Sign up" : "Login"}
           </button>
         </p>
       </section>
