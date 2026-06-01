@@ -361,6 +361,15 @@ button:disabled {
   line-height: 1.45;
 }
 
+.action-empty {
+  display: grid;
+  gap: 12px;
+}
+
+.action-empty .secondary-button {
+  justify-self: start;
+}
+
 .notice {
   padding: 15px;
   border: 1px solid var(--line);
@@ -491,6 +500,16 @@ button:disabled {
   align-items: center;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.compact-badges {
+  gap: 6px;
+}
+
+.compact-badges .badge {
+  min-height: 23px;
+  padding: 3px 7px;
+  font-size: 11px;
 }
 
 .badge {

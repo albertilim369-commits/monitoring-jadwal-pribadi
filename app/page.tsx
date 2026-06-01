@@ -277,7 +277,7 @@ export default function Home() {
               <Shield size={20} />
             </button>
           ) : null}
-          <button className="icon-button" type="button" onClick={() => setModal({ type: "settings" })} aria-label="Settings">
+          <button className="icon-button" type="button" onClick={() => setModal({ type: "settings" })} aria-label="Pengaturan">
             <Settings size={20} />
           </button>
           <button className="icon-button" type="button" onClick={() => void signOut()} aria-label="Keluar">
@@ -342,6 +342,7 @@ export default function Home() {
         tasks={currentView.tasks}
         events={currentView.events}
         emptyText={currentView.emptyText}
+        onCreate={() => setModal({ type: "choice" })}
         onOpenTask={(task) => setModal({ type: "taskDetail", taskId: task.id })}
         onEditTask={(task) => setModal({ type: "task", task })}
         onEditEvent={(event) => setModal({ type: "event", event })}
@@ -633,13 +634,13 @@ function LoginView() {
       <section className={`login-panel auth-${authMode}`}>
         <div className="auth-header">
           <span className="auth-app-name">My Daily Assistant</span>
-          <h1>{authMode === "reset" ? "Reset Password" : authMode === "login" ? "Login" : "Sign up"}</h1>
+          <h1>{authMode === "reset" ? "Reset Password" : authMode === "login" ? "Login" : "Daftar"}</h1>
           <p>
             {authMode === "reset"
-              ? "Enter your username to receive reset link"
+              ? "Masukkan username untuk menerima link reset"
               : authMode === "login"
-                ? "Log in to your account now"
-                : "Create an account, it's free"}
+                ? "Masuk ke akun dan lanjutkan jadwal hari ini"
+                : "Buat akun baru untuk mulai memakai aplikasi"}
           </p>
         </div>
         <form className="form secure-form" autoComplete="off" data-form-type="other" onSubmit={(event) => void handleAuth(event)}>
@@ -713,7 +714,7 @@ function LoginView() {
           ) : null}
           {authMode === "signup" ? (
             <div className="field">
-              <label htmlFor="confirm-password">Confirm Password</label>
+              <label htmlFor="confirm-password">Konfirmasi Password</label>
               <input
                 id="confirm-password"
                 type="password"
@@ -742,18 +743,18 @@ function LoginView() {
                 setMessage("");
               }}
             >
-              Forgot password?
+              Lupa password?
             </button>
           ) : null}
           <button className="primary-button auth-submit" type="submit" disabled={loading}>
-            {loading ? "Processing..." : authMode === "reset" ? "Send reset link" : authMode === "login" ? "Login" : "Sign up"}
+            {loading ? "Memproses..." : authMode === "reset" ? "Kirim link reset" : authMode === "login" ? "Login" : "Daftar"}
           </button>
           {message ? <span>{message}</span> : null}
           {error ? <span className="error-text">{error}</span> : null}
         </form>
         {authMode === "login" ? <LoginIllustration /> : null}
         <p className="auth-footer">
-          {authMode === "signup" ? "Already have an account? " : authMode === "reset" ? "Remember your password? " : "Don't have an account? "}
+          {authMode === "signup" ? "Sudah punya akun? " : authMode === "reset" ? "Ingat password? " : "Belum punya akun? "}
           <button
             className="text-link"
             type="button"
@@ -763,7 +764,7 @@ function LoginView() {
               setMessage("");
             }}
           >
-            {authMode === "login" ? "Sign up" : "Login"}
+            {authMode === "login" ? "Daftar" : "Login"}
           </button>
         </p>
       </section>
@@ -828,11 +829,13 @@ function PasswordResetView({ onDone }: { onDone: () => void }) {
 
   return (
     <main className="login-page">
-      <section className="login-panel">
-        <p className="eyebrow">My Daily Assistant</p>
-        <h1>Buat password baru</h1>
-        <p>Masukkan password baru untuk akun ini.</p>
-        <form className="form" onSubmit={(event) => void handleUpdatePassword(event)}>
+      <section className="login-panel auth-reset">
+        <div className="auth-header">
+          <span className="auth-app-name">My Daily Assistant</span>
+          <h1>Password baru</h1>
+          <p>Masukkan password baru untuk akun ini.</p>
+        </div>
+        <form className="form secure-form" onSubmit={(event) => void handleUpdatePassword(event)}>
           <div className="field">
             <label htmlFor="new-password">Password baru</label>
             <input
@@ -857,7 +860,7 @@ function PasswordResetView({ onDone }: { onDone: () => void }) {
               required
             />
           </div>
-          <button className="primary-button" type="submit" disabled={loading}>
+          <button className="primary-button auth-submit" type="submit" disabled={loading}>
             {loading ? "Menyimpan..." : "Simpan password"}
           </button>
           {message ? (
@@ -958,6 +961,7 @@ function DashboardSection({
   tasks,
   events,
   emptyText,
+  onCreate,
   onOpenTask,
   onEditTask,
   onEditEvent,
@@ -971,6 +975,7 @@ function DashboardSection({
   tasks: Task[];
   events: EventItem[];
   emptyText: string;
+  onCreate: () => void;
   onOpenTask: (task: Task) => void;
   onEditTask: (task: Task) => void;
   onEditEvent: (event: EventItem) => void;
@@ -995,7 +1000,15 @@ function DashboardSection({
       </div>
 
       <div className="stack">
-        {items.length === 0 ? <div className="empty-state">{emptyText}</div> : null}
+        {items.length === 0 ? (
+          <div className="empty-state action-empty">
+            <span>{emptyText}</span>
+            <button className="secondary-button" type="button" onClick={onCreate}>
+              <Plus size={16} />
+              Tambah item
+            </button>
+          </div>
+        ) : null}
         {items.map((item) =>
           item.kind === "task" ? (
             <TaskCard
@@ -1035,6 +1048,7 @@ function TaskCard({
   onStatusChange: (status: TaskStatus) => void;
 }) {
   const progress = getTaskProgress(task);
+  const timing = getTaskTiming(task);
 
   return (
     <article className={`item-card task-card priority-${task.priority}`} onClick={onOpen}>
@@ -1043,8 +1057,10 @@ function TaskCard({
           <h3 className="item-title">{task.title}</h3>
           <span className={`badge ${task.priority}`}>{priorityLabel[task.priority]}</span>
         </div>
-        <div className="item-meta">
-          Deadline {formatShortDate(task.deadline)} - {statusLabel[task.status]}
+        <div className="item-meta">Deadline {formatShortDate(task.deadline)} - {statusLabel[task.status]}</div>
+        <div className="badge-row compact-badges">
+          <span className={`badge ${timing.className}`}>{timing.label}</span>
+          {task.status === "done" ? <span className="badge done">Selesai</span> : null}
         </div>
         {task.subtasks && task.subtasks.length > 0 ? (
           <div className="compact-progress" aria-label={`Progress ${progress.percent}%`}>
@@ -1066,7 +1082,7 @@ function TaskCard({
           }}
         >
           <Check size={16} />
-          {task.status === "done" ? "Buka" : "Update"}
+          {getNextStatusActionLabel(task.status)}
         </button>
         <button
           className="action-button"
@@ -1239,7 +1255,7 @@ function TaskDetailSheet({
         <div className="item-actions">
           <button className="action-button" type="button" onClick={() => void onStatusChange(nextStatus(task.status))}>
             <Check size={16} />
-            {task.status === "done" ? "Buka lagi" : "Update status"}
+            {getNextStatusActionLabel(task.status)}
           </button>
           <button className="action-button" type="button" onClick={onEdit}>
             <Pencil size={16} />
@@ -1341,6 +1357,7 @@ function EventCard({
   const label = event.color_label || "neutral";
   const status = event.status || "scheduled";
   const history = isEventInHistory(event);
+  const timing = getEventTiming(event);
 
   return (
     <article className={`item-card event-card color-${label}`}>
@@ -1352,6 +1369,9 @@ function EventCard({
         <div className="item-meta">
           {formatShortDate(event.date)}
           {event.time ? ` - ${event.time.slice(0, 5)}` : ""}
+        </div>
+        <div className="badge-row compact-badges">
+          <span className={`badge ${timing.className}`}>{timing.label}</span>
         </div>
         {event.note ? <p className="item-note">{event.note}</p> : null}
       </div>
@@ -1508,6 +1528,7 @@ function TaskForm({
           <label htmlFor="task-title">Judul</label>
           <input
             id="task-title"
+            placeholder="Contoh: Revisi laporan"
             value={form.title}
             onChange={(event) => setForm({ ...form, title: event.target.value })}
             required
@@ -1553,6 +1574,7 @@ function TaskForm({
           <label htmlFor="task-note">Catatan</label>
           <textarea
             id="task-note"
+            placeholder="Catatan tambahan jika diperlukan"
             value={form.note}
             onChange={(event) => setForm({ ...form, note: event.target.value })}
           />
@@ -1682,6 +1704,7 @@ function EventForm({
           <label htmlFor="event-title">Judul</label>
           <input
             id="event-title"
+            placeholder="Contoh: Meeting proyek"
             value={form.title}
             onChange={(inputEvent) => setForm({ ...form, title: inputEvent.target.value })}
             required
@@ -1726,6 +1749,7 @@ function EventForm({
           <label htmlFor="event-note">Catatan</label>
           <textarea
             id="event-note"
+            placeholder="Detail lokasi, link, atau hal yang perlu disiapkan"
             value={form.note}
             onChange={(inputEvent) => setForm({ ...form, note: inputEvent.target.value })}
           />
@@ -1845,7 +1869,7 @@ function SettingsSheet({
     <>
       <div className="sheet-header">
         <div>
-          <p className="eyebrow">Settings</p>
+          <p className="eyebrow">Pengaturan</p>
           <h2>Template jadwal</h2>
         </div>
       </div>
@@ -1862,16 +1886,33 @@ function SettingsSheet({
             </div>
             <div className="field">
               <label htmlFor="template-name">Nama template</label>
-              <input id="template-name" value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} required />
+              <input
+                id="template-name"
+                placeholder="Contoh: Tugas kuliah"
+                value={form.name}
+                onChange={(event) => setForm({ ...form, name: event.target.value })}
+                required
+              />
             </div>
           </div>
           <div className="field">
             <label htmlFor="template-title">Judul default</label>
-            <input id="template-title" value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} required />
+            <input
+              id="template-title"
+              placeholder="Judul yang otomatis terisi"
+              value={form.title}
+              onChange={(event) => setForm({ ...form, title: event.target.value })}
+              required
+            />
           </div>
           <div className="field">
             <label htmlFor="template-note">Catatan default</label>
-            <textarea id="template-note" value={form.note} onChange={(event) => setForm({ ...form, note: event.target.value })} />
+            <textarea
+              id="template-note"
+              placeholder="Catatan yang sering dipakai"
+              value={form.note}
+              onChange={(event) => setForm({ ...form, note: event.target.value })}
+            />
           </div>
           {form.type === "task" ? (
             <>
@@ -1927,7 +1968,7 @@ function SettingsSheet({
                 <div>
                   <p>{template.name}</p>
                   <span>
-                    {template.type === "task" ? "Task" : "Event"} · {template.title}
+                    {template.type === "task" ? "Task" : "Event"} - {template.title}
                   </span>
                 </div>
                 <button className="action-button" type="button" onClick={() => startEdit(template)}>
@@ -2018,7 +2059,7 @@ function LeaderSheet({
       <div className="sheet-header">
         <div>
           <p className="eyebrow">Leader</p>
-          <h2>Manage akun</h2>
+          <h2>Kelola akun</h2>
         </div>
       </div>
 
@@ -2109,6 +2150,60 @@ function getTaskProgress(task: Task) {
   const percent = total === 0 ? 0 : Math.round((done / total) * 100);
 
   return { done, total, percent };
+}
+
+function getNextStatusActionLabel(status: TaskStatus) {
+  if (status === "todo") return "Mulai";
+  if (status === "in_progress") return "Selesai";
+  return "Buka lagi";
+}
+
+function getTaskTiming(task: Task) {
+  if (task.status === "done") {
+    return { label: "Selesai", className: "done" };
+  }
+
+  if (isPastDate(task.deadline)) {
+    return { label: "Terlambat", className: "overdue" };
+  }
+
+  if (isToday(task.deadline)) {
+    return { label: "Hari ini", className: "soon" };
+  }
+
+  const days = getDaysFromToday(task.deadline);
+  if (days <= 3) {
+    return { label: `${days} hari lagi`, className: "soon" };
+  }
+
+  return { label: "Terjadwal", className: "green" };
+}
+
+function getEventTiming(event: EventItem) {
+  if (event.status === "done") {
+    return { label: "Selesai manual", className: "done" };
+  }
+
+  if (isPastDate(event.date)) {
+    return { label: "Lewat tanggal", className: "overdue" };
+  }
+
+  if (isToday(event.date)) {
+    return { label: "Hari ini", className: "soon" };
+  }
+
+  const days = getDaysFromToday(event.date);
+  if (days <= 3) {
+    return { label: `${days} hari lagi`, className: "soon" };
+  }
+
+  return { label: "Terjadwal", className: "green" };
+}
+
+function getDaysFromToday(value: string) {
+  const target = new Date(`${value}T00:00:00`).getTime();
+  const today = new Date(`${toDateInputValue()}T00:00:00`).getTime();
+  return Math.max(0, Math.round((target - today) / 86_400_000));
 }
 
 function isEventInHistory(event: EventItem) {
